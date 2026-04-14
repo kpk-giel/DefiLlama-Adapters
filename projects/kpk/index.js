@@ -18,7 +18,7 @@ const GearboxCompressorABI = {
 // ---- Config (extend as needed) ----
 const configs = {
   methodology:
-    "Sum of curated vault deposits (Morpho, Aleph, Euler, Gearbox), Gearbox v3.1 credit account collateral, and kpk Fund AUM via onchain NAV Calculators.",
+    "Sum of curated vault deposits (Morpho, Aleph, Euler, Gearbox), Gearbox v3.1 credit account collateral, kpk Fund AUM, and positions in Safes actively managed by kpk via Zodiac Roles Modifier.",
   blockchains: {
     ethereum: {
       // Option 1: Use morphoVaultOwners to dynamically get all Morpho vaults owned by these addresses
@@ -138,10 +138,26 @@ async function getAlephVaultTvl(api, vaults) {
 }
 
 // ---- kpk Fund (OIV) TVL via DeBank ----
-const FUND_CHAINS = ['ethereum', 'arbitrum', 'base', 'xdai', 'optimism']
+const OIV_SAFES = [PORTFOLIO_SAFE]
+const OIV_CHAINS = ['ethereum', 'arbitrum', 'base', 'xdai', 'optimism']
 
-async function getKpkFundTvl(api) {
-  await sumTokensDebank(api, [PORTFOLIO_SAFE])
+async function getOivTvl(api) {
+  await sumTokensDebank(api, OIV_SAFES)
+}
+
+// ---- Zodiac-managed Safe TVL via DeBank ----
+// Safes actively managed by kpk via Zodiac Roles Modifier
+const ZODIAC_MANAGED_SAFES = [
+  '0x4F2083f5fBede34C2714aFfb31055397f5f7FE64', // ENS Endowment Fund
+  '0x616de58c011f8736fa20c7ae5352f7f6fb9f0669', // CoW Core Treasury
+  '0x4D1D9D7741740A3E2ffC5507aC643DbA5e81cAe5', // Arbitrum TM Funds
+  '0x8e53D04644E9ab0412a8c6bd228C84da7664cFE3', // Nexus Mutual TM Funds
+  '0x0efccbb9e2c09ea29551879bd9da32362b32fc89', // Balancer Core Treasury
+]
+const ZODIAC_CHAINS = ['ethereum', 'arbitrum', 'base', 'xdai', 'bsc', 'polygon']
+
+async function getZodiacManagedTvl(api) {
+  await sumTokensDebank(api, ZODIAC_MANAGED_SAFES)
 }
 
 // ---- Combined TVL export per chain ----
@@ -161,15 +177,28 @@ for (const [chain, chainCfg] of Object.entries(configs.blockchains)) {
 }
 
 // Add kpk Fund (OIV) TVL to each chain the fund is deployed on
-for (const chain of FUND_CHAINS) {
+for (const chain of OIV_CHAINS) {
   if (exportObjects[chain]) {
     const originalTvl = exportObjects[chain].tvl
     exportObjects[chain].tvl = async (api) => {
       await originalTvl(api)
-      await getKpkFundTvl(api)
+      await getOivTvl(api)
     }
   } else {
-    exportObjects[chain] = { tvl: getKpkFundTvl }
+    exportObjects[chain] = { tvl: getOivTvl }
+  }
+}
+
+// Add Zodiac-managed Safe TVL to each chain where managed funds exist
+for (const chain of ZODIAC_CHAINS) {
+  if (exportObjects[chain]) {
+    const originalTvl = exportObjects[chain].tvl
+    exportObjects[chain].tvl = async (api) => {
+      await originalTvl(api)
+      await getZodiacManagedTvl(api)
+    }
+  } else {
+    exportObjects[chain] = { tvl: getZodiacManagedTvl }
   }
 }
 
