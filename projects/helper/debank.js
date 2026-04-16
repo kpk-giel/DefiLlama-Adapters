@@ -25,12 +25,12 @@ function getLlamaChain(debankChain) {
 
 const _cache = {}
 
-function _cacheKey(endpoint, owners) {
-  return endpoint + ':' + owners.map(o => o.toLowerCase()).sort().join(',')
+function _cacheKey(endpoint, owners, extraParams = {}) {
+  return endpoint + ':' + owners.map(o => o.toLowerCase()).sort().join(',') + ':' + JSON.stringify(extraParams)
 }
 
-async function _fetchDebank(endpoint, owners) {
-  const key = _cacheKey(endpoint, owners)
+async function _fetchDebank(endpoint, owners, extraParams = {}) {
+  const key = _cacheKey(endpoint, owners, extraParams)
   if (!_cache[key]) {
     const apiKey = getEnv('DEBANK_API_KEY')
     if (!apiKey) {
@@ -41,7 +41,7 @@ async function _fetchDebank(endpoint, owners) {
     _cache[key] = Promise.all(
       owners.map(id =>
         axios.get(`${DEBANK_API_BASE}/${endpoint}`, {
-          params: { id, is_all: true },
+          params: { id, is_all: true, ...extraParams },
           headers,
         }).then(r => r.data).catch(e => {
           console.log(`DeBank ${endpoint} failed for ${id}: ${e.response?.status || e.message}`)
@@ -59,10 +59,14 @@ function _normalizeAddr(rawId) {
 }
 
 async function sumTokensDebank(api, owners, { blacklistedTokens = [], stripPoolTokens = false } = {}) {
-  const allData = await _fetchDebank('all_complex_protocol_list', owners)
+  const [protocolData, tokenData] = await Promise.all([
+    _fetchDebank('all_complex_protocol_list', owners),
+    _fetchDebank('all_token_list', owners, { is_all: false }),
+  ])
   const blacklist = new Set(blacklistedTokens.map(t => t.toLowerCase()))
 
-  for (const protocols of allData) {
+  // protocol positions
+  for (const protocols of protocolData) {
     for (const protocol of protocols || []) {
       if (getLlamaChain(protocol.chain) !== api.chain) continue
       for (const item of protocol.portfolio_item_list || []) {
@@ -75,6 +79,16 @@ async function sumTokensDebank(api, owners, { blacklistedTokens = [], stripPoolT
           api.removeTokenBalance(item.pool.id.toLowerCase())
         }
       }
+    }
+  }
+
+  // raw wallet token balances
+  for (const tokens of tokenData) {
+    for (const token of tokens || []) {
+      if (getLlamaChain(token.chain) !== api.chain) continue
+      const addr = _normalizeAddr(token.id)
+      if (!addr || blacklist.has(addr)) continue
+      if (token.amount > 0) api.add(addr, token.amount * 10 ** token.decimals)
     }
   }
 }
