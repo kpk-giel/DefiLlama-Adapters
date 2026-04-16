@@ -148,13 +148,15 @@ async function getOivTvl(api) {
 // ---- Zodiac-managed Safe TVL via DeBank ----
 // Safes actively managed by kpk via Zodiac Roles Modifier
 const ZODIAC_MANAGED_SAFES = [
-  '0x4F2083f5fBede34C2714aFfb31055397f5f7FE64', // ENS Endowment Fund
-  '0x616de58c011f8736fa20c7ae5352f7f6fb9f0669', // CoW Core Treasury
-  '0x4D1D9D7741740A3E2ffC5507aC643DbA5e81cAe5', // Arbitrum TM Funds
-  '0x8e53D04644E9ab0412a8c6bd228C84da7664cFE3', // Nexus Mutual TM Funds
-  '0x0efccbb9e2c09ea29551879bd9da32362b32fc89', // Balancer Core Treasury
+  '0x4F2083f5fBede34C2714aFfb3105539775f7FE64', // ENS Endowment Fund
+  '0x616dE58c011F8736fa20c7Ae5352F7f6FB9F0669', // CoW Main Treasury
+  '0x7F8987D6A8bee31bD7bE80E877732579E2582a28', // CoW Defense Fund
+  '0x9009B4411D0e1171cc042b77D7701f46B737Fdb9', // CoW Validator Safe
+  '0x4D1D9D7741740A3E2ffC5507aC643DbA5e81cAe5', // Arbitrum DAO
+  '0x8e53D04644E9ab0412a8c6bd228C84da7664cFE3', // Nexus Mutual
+  '0x0EFcCBb9E2C09Ea29551879bd9Da32362b32fc89', // Balancer Core Treasury
 ]
-const ZODIAC_CHAINS = ['ethereum', 'arbitrum', 'base', 'xdai', 'bsc', 'polygon']
+const ZODIAC_CHAINS = ['ethereum', 'arbitrum', 'base', 'xdai', 'optimism', 'bsc', 'polygon']
 
 async function getZodiacManagedTvl(api) {
   await sumTokensDebank(api, ZODIAC_MANAGED_SAFES)
